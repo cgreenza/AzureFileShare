@@ -1,0 +1,11 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet",
+    "WEB_HOST": "https://filesharetestcg11.blob.core.windows.net/web"
+  },
+  "Host": {
+    "CORS": "*"
+  }
+}

@@ -26,11 +26,18 @@ namespace Functions
             [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
             ILogger log, ExecutionContext context)
         {
-            var config = new ConfigurationBuilder()
+            var devEnvironmentVariable = Environment.GetEnvironmentVariable("NETCORE_ENVIRONMENT");
+            var isDevelopment = string.IsNullOrEmpty(devEnvironmentVariable) || devEnvironmentVariable.ToLower() == "development";
+
+            var builder = new ConfigurationBuilder()
                 .SetBasePath(context.FunctionAppDirectory)
-                .AddJsonFile("local.settings.json", optional: true, reloadOnChange: true)
-                .AddEnvironmentVariables()
-                .Build();
+                .AddJsonFile("settings.json", optional: true, reloadOnChange: true)
+                .AddEnvironmentVariables();
+
+            if (isDevelopment)
+                builder.AddUserSecrets(typeof(CreateUploadFunc).Assembly);
+
+            var config = builder.Build();
 
             log.LogInformation("C# HTTP trigger function processed a request.");
 
