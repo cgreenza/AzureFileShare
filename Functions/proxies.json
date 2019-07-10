@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json.schemastore.org/proxies",
+  "proxies": {
+    "proxyHomePage": {
+      "matchCondition": {
+        "methods": [ "GET" ],
+        "route": "/"
+      },
+      "backendUri": "%WEB_HOST%/index.html"
+    },
+    "proxyApi": {
+      "matchCondition": {
+        "methods": [ "GET" ],
+        "route": "/api/{*restOfPath}"
+      },
+      "backendUri": "https://localhost/api/{restOfPath}"
+    },
+    "proxyFiles": {
+      "matchCondition": {
+        "methods": [ "GET" ],
+        "route": "/{*restOfPath}"
+      },
+      "backendUri": "%WEB_HOST%/{restOfPath}"
+    }
+  }
+}

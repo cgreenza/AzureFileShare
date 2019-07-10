@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>File Sharing</title>
+    <style>
+        body {
+            font-family: verdana;
+        }
+    </style>
+</head>
+
+<body>
+
+    <button onclick="upload()">Upload</button>
+
+    <div id="successPanel">
+        <p>Download URL:</p>
+        <div id="downloadUrl"></div>
+
+        <p>Upload URL:</p>
+        <div id="uploadUrl"></div>
+    </div>
+
+    <div id="errorPanel">
+        <div id="errorMessage"></div>
+    </div>
+
+</body>
+
+<script>
+    function docReady(cb) {
+        if (document.readyState != 'loading') {
+            cb();
+        } else {
+            document.addEventListener('DOMContentLoaded', cb);
+        }
+    }
+    docReady(function () {
+        document.getElementById("successPanel").style.display = 'none';
+        document.getElementById("errorPanel").style.display = 'none';
+    });
+
+    function upload() {
+        document.getElementById("successPanel").style.display = 'none';
+        document.getElementById("errorPanel").style.display = 'none';
+
+        fetch('http://localhost:7071/api/CreateUpload?filename=test.txt')
+            .then(function (response) {
+
+                if (response.status !== 200) {
+                    showError('Looks like there was a problem. Status Code: ' + response.status + '' + response.statusText);
+                    return;
+                }
+
+                response.json().then(function (data) {
+                    //console.log(data);
+                    document.getElementById("downloadUrl").innerHTML = data.downloadUrl;
+                    document.getElementById("uploadUrl").innerHTML = data.uploadUrl;
+                    document.getElementById("successPanel").style.display = 'block';
+                });
+            })
+            .catch(function (error) {
+                showError(error);
+            });
+    }
+
+    function showError(error) {
+        document.getElementById("errorMessage").innerText = error;
+        document.getElementById("errorPanel").style.display = 'block';
+    }
+
+</script>
+
+</html>
