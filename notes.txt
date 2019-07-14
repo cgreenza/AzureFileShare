@@ -1,0 +1,9 @@
+AAD auth:
+https://docs.microsoft.com/en-us/azure/app-service/configure-authentication-provider-aad
+https://docs.microsoft.com/en-us/azure/app-service/app-service-authentication-how-to
+
+https://docs.microsoft.com/en-us/azure/active-directory/develop/howto-convert-app-to-be-multi-tenant
+https://docs.microsoft.com/en-us/azure/active-directory/develop/howto-restrict-your-app-to-a-set-of-users
+
+https://winsmarts.com/azure-function-aad-integration-d32a2d108878
+https://adatum.no/azure/azure-ad-authentication-in-azure-functions

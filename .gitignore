@@ -262,3 +262,8 @@ paket-files/
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
 *.pyc
+
+/WebUI/config.json
+/WebUI/server.cert
+/WebUI/server.key
+/Functions/Properties/PublishProfiles
