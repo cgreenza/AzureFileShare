@@ -1,4 +1,0 @@
-﻿{
-  "StorageAccountConnectionString": "set using dotnet user-secrets set",
-  "ContainerName": "share"
-}
