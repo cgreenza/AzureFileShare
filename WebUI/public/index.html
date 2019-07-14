@@ -3,20 +3,29 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>File Sharing</title>
+    <title>DM File Sharing</title>
     <style>
         body {
             font-family: verdana;
         }
     </style>
+
 </head>
 
 <body>
-xxxxx
-<a href="/.auth/login/aad?post_login_redirect_url=/">Log in with Azure AD</a>
-<a href="/.auth/me">Auth details</a>
 
-    <button onclick="upload()">Upload</button>
+    <!-- <a href="/.auth/login/aad?post_login_redirect_url=/">Log in with Azure AD</a>
+    <a href="/.auth/me">Auth details</a> -->
+
+    <div id="checkAuthPanel">Please wait while checking authentication status...</div>
+
+    <div id="selectUploadPanel">
+
+        <label for="fileInput">Choose a file to upload:</label>
+        <input type="file" id="fileInput" name="avatar">
+
+        <button onclick="upload()">Upload</button>
+    </div>
 
     <div id="successPanel">
         <p>Download URL:</p>
@@ -24,8 +33,8 @@ xxxxx
 
         <p>Upload URL:</p>
         <div id="uploadUrl"></div>
-		
-		<p><code>azcopy cp SOURCE "UPLOAD_URL"</code></p>
+
+        <p><code>azcopy cp SOURCE "UPLOAD_URL"</code></p>
     </div>
 
     <div id="errorPanel">
@@ -33,6 +42,10 @@ xxxxx
     </div>
 
 </body>
+
+<script src="azure-storage.blob.min.js" charset="utf-8">
+    //https://aka.ms/downloadazurestoragejs
+</script>
 
 <script>
     function docReady(cb) {
@@ -43,15 +56,52 @@ xxxxx
         }
     }
     docReady(function () {
+        document.getElementById("selectUploadPanel").style.display = 'none';
         document.getElementById("successPanel").style.display = 'none';
         document.getElementById("errorPanel").style.display = 'none';
+        checkToken();
     });
+
+    function checkToken() {
+        fetch('.auth/me')
+            .then(function (response) {
+                if (response.status == 200) {
+                    // token OK, show UI
+                    response.json().then(function (data) {
+                        console.log(data); // todo
+                        // todo: get name           
+                        document.getElementById("selectUploadPanel").style.display = 'block';
+                    });
+                    return;
+                }
+                else if (response.status == 401) {
+                    // token not valid, redirect to login
+                    window.location.href = "/.auth/login/aad";
+                    return;
+                }
+                else
+                    showError('<p>Looks like there was a problem checking token. Status Code: ' + response.status + ' ' + response.statusText + '</p><p><a href="/.auth/login/aad?post_login_redirect_url=/">Retry login</a></p>');
+            })
+            .catch(function (error) {
+                showError(error);
+            })
+            .finally(function () {
+                document.getElementById("checkAuthPanel").style.display = 'none';
+            });
+    }
+
 
     function upload() {
         document.getElementById("successPanel").style.display = 'none';
         document.getElementById("errorPanel").style.display = 'none';
 
-        fetch('./api/CreateUpload?filename=test.txt')
+        var file = document.getElementById('fileInput').files[0];
+        if (file == undefined) {
+            alert("please select a file");
+            return;
+        }
+
+        fetch('./api/CreateUpload?filename=' + encodeURIComponent(file.name))
             .then(function (response) {
 
                 if (response.status !== 200) {
@@ -64,6 +114,21 @@ xxxxx
                     document.getElementById("downloadUrl").innerHTML = data.downloadUrl;
                     document.getElementById("uploadUrl").innerHTML = data.uploadUrl;
                     document.getElementById("successPanel").style.display = 'block';
+
+                    const blockBlobURL = new azblob.BlockBlobURL(data.uploadUrl,
+                        azblob.StorageURL.newPipeline(new azblob.AnonymousCredential));
+
+                    azblob.uploadBrowserDataToBlockBlob(
+                        azblob.Aborter.none, file, blockBlobURL, {
+                            // blockSize: file.size > 1024 * 1024 * 32 ? 1024 * 1024 * 4 : 1024 * 512,
+                            progress: function(pe) {
+                                console.log(pe.loadedBytes + ' of ' + file.size);
+                            }
+                        }).then(function (response) {
+                            console.log("DONE ", response);
+                        }, function (error) {
+                            console.error("Failed!", error);
+                        });
                 });
             })
             .catch(function (error) {
@@ -72,7 +137,7 @@ xxxxx
     }
 
     function showError(error) {
-        document.getElementById("errorMessage").innerText = error;
+        document.getElementById("errorMessage").innerHTML = error;
         document.getElementById("errorPanel").style.display = 'block';
     }
 
