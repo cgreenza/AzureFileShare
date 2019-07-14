@@ -5,6 +5,8 @@
     "FUNCTIONS_WORKER_RUNTIME": "dotnet",
     "WEB_HOST": "https://filesharetestcg11.blob.core.windows.net/web"
   },
+  "StorageAccountConnectionString": "set using dotnet user-secrets set",
+  "ContainerName": "share",
   "Host": {
     "CORS": "*"
   }
