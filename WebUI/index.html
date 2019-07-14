@@ -13,6 +13,9 @@
 
 <body>
 
+<a href="/.auth/login/aad?post_login_redirect_url=/">Log in with Azure AD</a>
+<a href="/.auth/me">Auth details</a>
+
     <button onclick="upload()">Upload</button>
 
     <div id="successPanel">
@@ -21,6 +24,8 @@
 
         <p>Upload URL:</p>
         <div id="uploadUrl"></div>
+		
+		<p><code>azcopy cp SOURCE "UPLOAD_URL"</code></p>
     </div>
 
     <div id="errorPanel">
@@ -46,7 +51,7 @@
         document.getElementById("successPanel").style.display = 'none';
         document.getElementById("errorPanel").style.display = 'none';
 
-        fetch('http://localhost:7071/api/CreateUpload?filename=test.txt')
+        fetch('./api/CreateUpload?filename=test.txt')
             .then(function (response) {
 
                 if (response.status !== 200) {
@@ -55,7 +60,7 @@
                 }
 
                 response.json().then(function (data) {
-                    //console.log(data);
+                    console.log(data); // todo
                     document.getElementById("downloadUrl").innerHTML = data.downloadUrl;
                     document.getElementById("uploadUrl").innerHTML = data.uploadUrl;
                     document.getElementById("successPanel").style.display = 'block';
