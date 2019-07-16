@@ -9,36 +9,45 @@
             font-family: verdana;
         }
     </style>
-
 </head>
 
 <body>
 
     <div id="checkAuthPanel">Please wait while checking authentication status...</div>
 
-    <div id="selectUploadPanel">
-        <p><label for="fileInput">Choose a file to upload:</label></p>
+    <div id="browserUploadPanel" style="display: none">
+        <h1>Upload using Browser</h1>
         <p><input type="file" id="fileInput"></p>
-        <p><button onclick="upload()">Upload</button></p>
+        <p><button onclick="uploadUsingBrowser()">Start upload</button></p>
     </div>
 
-    <div id="uploadBusyPanel">
+    <div id="azcopyUploadPanel" style="display: none">
+        <h1>Upload using AzCopy</h1>
+        <p><label for="fileName">Enter file name:</label>
+            <input type="text" id="fileName"></p>
+        <p><button onclick="uploadUsingAzcopy()">Get upload link</button></p>
+    </div>
+
+    <div id="uploadBusyPanel" style="display: none">
         <div id="uploadProgress"></div>
     </div>
 
-    <div id="successPanel">
+    <div id="browserSuccessPanel" style="display: none">
         <p>Upload complete!</p>
-        
+
         <p>Download URL:</p>
-        <div id="downloadUrl"></div>
-
-        <p>Upload URL:</p>
-        <div id="uploadUrl"></div>
-
-        <p><code>azcopy cp SOURCE "UPLOAD_URL"</code></p>
+        <div id="browserDownloadUrl" style="user-select: all"></div>
     </div>
 
-    <div id="errorPanel">
+    <div id="azcopySuccessPanel" style="display: none">
+        <p>Use following command to upload file using AzCopy v10:</p>
+        <div style="user-select: all"><code>azcopy cp <b><i>LOCAL_FILE_NAME</b></i> "<span id="azcopyUploadUrl"></span>"</code></div>
+
+        <p>Download URL:</p>
+        <div id="azcopyDownloadUrl" style="user-select: all"></div>
+    </div>
+
+    <div id="errorPanel" style="display: none">
         <div id="errorMessage"></div>
     </div>
 
@@ -57,10 +66,6 @@
         }
     }
     docReady(function () {
-        showPanel("selectUploadPanel", false);
-        showPanel("uploadBusyPanel", false);
-        showPanel("successPanel", false);
-        showPanel("errorPanel", false);
         checkToken();
     });
 
@@ -78,7 +83,8 @@
             })
             .then(function (data) {
                 // console.log(data); todo: get name
-                showPanel("selectUploadPanel", true);
+                showPanel("browserUploadPanel", true);
+                showPanel("azcopyUploadPanel", true);
             })
             .catch(function (error) {
                 showError(error);
@@ -88,10 +94,10 @@
             });
     }
 
-    function upload() {
-        showPanel("successPanel", false);
+    function uploadUsingBrowser() {
+        showPanel("browserSuccessPanel", false);
+        showPanel("azcopySuccessPanel", false);
         showPanel("errorPanel", false);
-        // todo: disable selectUploadPanel
 
         var file = document.getElementById('fileInput').files[0];
         if (file == undefined) {
@@ -113,8 +119,7 @@
             .then(function (createUploadResponse) {
                 console.log(createUploadResponse);
 
-                document.getElementById("downloadUrl").innerHTML = createUploadResponse.downloadUrl;
-                document.getElementById("uploadUrl").innerHTML = createUploadResponse.uploadUrl;
+                document.getElementById("browserDownloadUrl").innerHTML = createUploadResponse.downloadUrl;
                 document.getElementById("uploadProgress").innerText = "Starting upload...";
 
                 const blockBlobURL = new azblob.BlockBlobURL(createUploadResponse.uploadUrl,
@@ -125,13 +130,52 @@
                         //blockSize: file.size > 1024 * 1024 * 32 ? 1024 * 1024 * 4 : 1024 * 512,
                         progress: function (pe) {
                             //console.log(pe.loadedBytes + ' of ' + file.size);
-                            document.getElementById("uploadProgress").innerText = 'Uploading ' + formatBytes(pe.loadedBytes, 3) + ' of ' + formatBytes(file.size, 3) + ' (' + (pe.loadedBytes*100.0/file.size).toFixed(0) + '%) ...';
+                            document.getElementById("uploadProgress").innerText = 'Uploading ' + formatBytes(pe.loadedBytes, 3) + ' of ' + formatBytes(file.size, 3) + ' (' + (pe.loadedBytes * 100.0 / file.size).toFixed(0) + '%) ...';
                         }
                     })
             })
             .then(function (response) {
                 console.log("Upload complete ", response);
-                showPanel("successPanel", true);
+                showPanel("browserSuccessPanel", true);
+            })
+            .catch(function (error) {
+                console.log("Exception caught", error);
+                showError(error);
+            })
+            .then(function () {
+                showPanel("uploadBusyPanel", false);
+            });
+    }
+
+    function uploadUsingAzcopy() {
+        showPanel("browserSuccessPanel", false);
+        showPanel("azcopySuccessPanel", false);
+        showPanel("errorPanel", false);
+
+        var fileName = document.getElementById('fileName').value;
+        if (fileName == undefined || fileName == '') {
+            showError("Please specify a file name first");
+            return;
+        }
+
+        document.getElementById("uploadProgress").innerText = 'Allocating upload...';
+        showPanel("uploadBusyPanel", true);
+
+        fetch('./api/CreateUpload?filename=' + encodeURIComponent(fileName))
+            .then(function (response) {
+                if (response.status == 401)
+                    throw 'Not authorized: Please <a href="/.auth/login/aad?post_login_redirect_url=/">log in</a> and retry';
+                else if (response.status !== 200)
+                    throw 'Problem creating upload. Status Code: ' + response.status + ' ' + response.statusText;
+                return response.json();
+            })
+            .then(function (createUploadResponse) {
+                console.log(createUploadResponse);
+
+                document.getElementById("azcopyDownloadUrl").innerHTML = createUploadResponse.downloadUrl;
+                document.getElementById("azcopyUploadUrl").innerHTML = createUploadResponse.uploadUrl;
+
+                showPanel("azcopySuccessPanel", true);
             })
             .catch(function (error) {
                 console.log("Exception caught", error);
