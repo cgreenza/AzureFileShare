@@ -14,20 +14,21 @@
 
 <body>
 
-    <!-- <a href="/.auth/login/aad?post_login_redirect_url=/">Log in with Azure AD</a>
-    <a href="/.auth/me">Auth details</a> -->
-
     <div id="checkAuthPanel">Please wait while checking authentication status...</div>
 
     <div id="selectUploadPanel">
+        <p><label for="fileInput">Choose a file to upload:</label></p>
+        <p><input type="file" id="fileInput"></p>
+        <p><button onclick="upload()">Upload</button></p>
+    </div>
 
-        <label for="fileInput">Choose a file to upload:</label>
-        <input type="file" id="fileInput" name="avatar">
-
-        <button onclick="upload()">Upload</button>
+    <div id="uploadBusyPanel">
+        <div id="uploadProgress"></div>
     </div>
 
     <div id="successPanel">
+        <p>Upload complete!</p>
+        
         <p>Download URL:</p>
         <div id="downloadUrl"></div>
 
@@ -56,91 +57,101 @@
         }
     }
     docReady(function () {
-        document.getElementById("selectUploadPanel").style.display = 'none';
-        document.getElementById("successPanel").style.display = 'none';
-        document.getElementById("errorPanel").style.display = 'none';
+        showPanel("selectUploadPanel", false);
+        showPanel("uploadBusyPanel", false);
+        showPanel("successPanel", false);
+        showPanel("errorPanel", false);
         checkToken();
     });
 
     function checkToken() {
         fetch('.auth/me')
             .then(function (response) {
-                if (response.status == 200) {
-                    // token OK, show UI
-                    response.json().then(function (data) {
-                        console.log(data); // todo
-                        // todo: get name           
-                        document.getElementById("selectUploadPanel").style.display = 'block';
-                    });
-                    return;
-                }
-                else if (response.status == 401) {
+                if (response.status == 200)
+                    return response.json();
+                if (response.status == 401) {
                     // token not valid, redirect to login
-                    window.location.href = "/.auth/login/aad";
+                    window.location.href = "/.auth/login/aad?post_login_redirect_url=/";
                     return;
                 }
-                else
-                    showError('<p>Looks like there was a problem checking token. Status Code: ' + response.status + ' ' + response.statusText + '</p><p><a href="/.auth/login/aad?post_login_redirect_url=/">Retry login</a></p>');
+                throw '<p>Looks like there was a problem checking token. Status Code: ' + response.status + ' ' + response.statusText;
+            })
+            .then(function (data) {
+                // console.log(data); todo: get name
+                showPanel("selectUploadPanel", true);
             })
             .catch(function (error) {
                 showError(error);
             })
             .finally(function () {
-                document.getElementById("checkAuthPanel").style.display = 'none';
+                showPanel("checkAuthPanel", false);
             });
     }
 
-
     function upload() {
-        document.getElementById("successPanel").style.display = 'none';
-        document.getElementById("errorPanel").style.display = 'none';
+        showPanel("successPanel", false);
+        showPanel("errorPanel", false);
+        // todo: disable selectUploadPanel
 
         var file = document.getElementById('fileInput').files[0];
         if (file == undefined) {
-            alert("please select a file");
+            showError("Please select a file first");
             return;
         }
 
+        document.getElementById("uploadProgress").innerText = 'Allocating upload...';
+        showPanel("uploadBusyPanel", true);
+
         fetch('./api/CreateUpload?filename=' + encodeURIComponent(file.name))
             .then(function (response) {
+                if (response.status == 401)
+                    throw 'Not authorized: Please <a href="/.auth/login/aad?post_login_redirect_url=/">log in</a> and retry';
+                else if (response.status !== 200)
+                    throw 'Problem creating upload. Status Code: ' + response.status + ' ' + response.statusText;
+                return response.json();
+            })
+            .then(function (createUploadResponse) {
+                console.log(createUploadResponse);
 
-                if (response.status !== 200) {
-                    showError('Looks like there was a problem. Status Code: ' + response.status + '' + response.statusText);
-                    return;
-                }
+                document.getElementById("downloadUrl").innerHTML = createUploadResponse.downloadUrl;
+                document.getElementById("uploadUrl").innerHTML = createUploadResponse.uploadUrl;
+                document.getElementById("uploadProgress").innerText = "Starting upload...";
 
-                response.json().then(function (data) {
-                    console.log(data); // todo
-                    document.getElementById("downloadUrl").innerHTML = data.downloadUrl;
-                    document.getElementById("uploadUrl").innerHTML = data.uploadUrl;
-                    document.getElementById("successPanel").style.display = 'block';
+                const blockBlobURL = new azblob.BlockBlobURL(createUploadResponse.uploadUrl,
+                    azblob.StorageURL.newPipeline(new azblob.AnonymousCredential));
 
-                    const blockBlobURL = new azblob.BlockBlobURL(data.uploadUrl,
-                        azblob.StorageURL.newPipeline(new azblob.AnonymousCredential));
-
-                    azblob.uploadBrowserDataToBlockBlob(
-                        azblob.Aborter.none, file, blockBlobURL, {
-                            // blockSize: file.size > 1024 * 1024 * 32 ? 1024 * 1024 * 4 : 1024 * 512,
-                            progress: function(pe) {
-                                console.log(pe.loadedBytes + ' of ' + file.size);
-                            }
-                        }).then(function (response) {
-                            console.log("DONE ", response);
-                        }, function (error) {
-                            console.error("Failed!", error);
-                        });
-                });
+                return azblob.uploadBrowserDataToBlockBlob(
+                    azblob.Aborter.none, file, blockBlobURL, {
+                        //blockSize: file.size > 1024 * 1024 * 32 ? 1024 * 1024 * 4 : 1024 * 512,
+                        progress: function (pe) {
+                            //console.log(pe.loadedBytes + ' of ' + file.size);
+                            document.getElementById("uploadProgress").innerText = 'Uploading ' + formatBytes(pe.loadedBytes, 3) + ' of ' + formatBytes(file.size, 3) + ' (' + (pe.loadedBytes*100.0/file.size).toFixed(0) + '%) ...';
+                        }
+                    })
+            })
+            .then(function (response) {
+                console.log("Upload complete ", response);
+                showPanel("successPanel", true);
             })
             .catch(function (error) {
+                console.log("Exception caught", error);
                 showError(error);
+            })
+            .then(function () {
+                showPanel("uploadBusyPanel", false);
             });
     }
 
     function showError(error) {
         document.getElementById("errorMessage").innerHTML = error;
-        document.getElementById("errorPanel").style.display = 'block';
+        showPanel("errorPanel", true);
     }
 
+    function showPanel(id, show) {
+        document.getElementById(id).style.display = show ? 'block' : 'none';
+    }
+
+    function formatBytes(a, b) { if (0 == a) return "0 Bytes"; var c = 1024, d = b || 2, e = ["Bytes", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"], f = Math.floor(Math.log(a) / Math.log(c)); return parseFloat((a / Math.pow(c, f)).toFixed(d)) + " " + e[f] }
 </script>
 
 </html>
